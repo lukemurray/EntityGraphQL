@@ -57,10 +57,12 @@ namespace EntityGraphQL.LinqQuery.Tests
 
         private TestDataContext GetDataContext()
         {
-            var db = new TestDataContext();
-            db.Projects = new List<Project> { new Project { Id = 90, Type = 2 }, new Project { Id = 91, Type = 1 } };
-            db.People = new List<Person> { new Person { Id = 4, Guid = new Guid("6492f5fe-0869-4279-88df-7f82f8e87a67") } };
-            db.Locations = new List<Location> { new Location { Id = 10 } };
+            var db = new TestDataContext
+            {
+                Projects = new List<Project> { new Project { Id = 90, Type = 2 }, new Project { Id = 91, Type = 1 } },
+                People = new List<Person> { new Person { Id = 4, Guid = new Guid("6492f5fe-0869-4279-88df-7f82f8e87a67") } },
+                Locations = new List<Location> { new Location { Id = 10 } }
+            };
             return db;
         }
     }

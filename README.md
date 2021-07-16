@@ -433,7 +433,7 @@ public class MovieMutations
 
 Of course if you opt to throw an exception it will be caught and included in the error results.
 
-# Accessing other services in your mutation or field selections
+# Accessing other services in your mutations
 EntityGraphQL uses a `IServiceProvider` that you provide to resolve any services you require outside of the `TContext`. You provide an instance of the `IServiceProvider` when you call `ExecuteQuery()`.
 
 ```csharp
@@ -482,27 +482,109 @@ public class MovieMutations
 }
 ```
 
-We can also inject services in field selections with the helper `WithService<T>()`
+# Accessing other data/services in your fields
 
-_Note as `WithService` has a typed return `WithService<TService, Treturn>` you can let the compiler figure out the return type by typing the arguments. e.g.
+We can also inject services in field definitions with the helper method `WithService<T>()`
+
+_Note as `WithService` has a typed return `WithService<TService, TReturn>` you can let the compiler figure out the return type by typing the arguments. e.g.
 
 ```c#
-WithService((IMyService mySer) => mySer.Something())
+WithService((IMyService mySer) => mySer.ReturnsInt())
 // vs
-WithService<IMyService, Int>(mySer => mySer.Something())
+WithService<IMyService, int>(mySer => mySer.ReturnsInt())
+```
+
+To use the helper in a field.
 
 ```c#
 schema.AddField("Field", new { search = (string)null }, (db, p) => WithService((IMyService mySer) => mySer.ReturnNonDbData(p.search), "Description")
 
-// or a field on a typoe
+// or a field on a type
 schema.Type<Movie>().AddField("Field", new { search = (string)null }, (movie, p) => WithService((IMyService mySer) => mySer.ReturnNonDbData(p.search, movie.Id), "Description")
 ```
 
-Using the wrapper inside the field selection expression lets us still use the anonymous type for the parameter definition.
+## How EntityGraphQL handles WithService()
+
+Since using EntityGraphQL against an EF Core `DbContext` is highly supported we handle `WithService()` in a way that will work with EF core (and possibly other IQueryable ORMs) and allow it to perform an optimal SQL statement. Previously with EF core 2.x, if it couldn't translate the query into SQL it would automatically fall back to selecting all the data (whole tables) and running the `Where()` and/or `Select()` calls in memory. EF core 3.1+ will throw an error by default if it can't translate. To support EF 3.1+ performing optimal queries (and selecting only the fields you request) EntityGraphQL builds the expressions in 2 parts.
+
+_This can be disabled by setting the argument `executeServiceFieldsSeparately` when executing to `false`. For example if your core context is an in memory object._
+
+If you encounter any issues when using `WithService()` on fields and EF Core 3.1+ please raise an issue.
+
+Example of how EntityGraphQL handles `WithService()`, which can help inform how you build/use other services.
+
+Given the following GQL
+
+```gql
+{
+  people { age manager { name } }
+}
+```
+
+Where `age` is defined with a service as
+
+```c#
+schema.Type<Person>().AddField("age",
+    (person) => WithService((AgeService ager) => ager.GetAge(person.Birthday)),
+    "Persons age");
+```
+
+EntityGraphQL will build an expression query that first selects everything from the base context (DBContext in the case) that EF can execute. Then another expression query that runs on top of that result which includes the `WithService()` fields. This means EF can optimise your query and return all the data requested (and nothing more) and in memory we then merge that with data from your services.
+
+An example in C# of what this ends up looking like.
+
+```c#
+var dbResultFunc = (DbContext context) => context.People.Select(p => new {
+    Birthday = p.Birthday, // extracted from the WithService call as it is needed in the in-memory resolution
+    manager = new {
+        name = p.Manager.Name
+    }
+})
+.ToList(); // EF will fetch data
+var dbResult = dbResultFunc(dbContext);
+
+// note dbResult is an anonymous type known at runtime
+var resultsFunc = (AnonType dbResult, AgeService ager) => dbResult.Select(p => {
+    age = ager.GetAge(p.Birthday)), // passing in data we selected just for this
+    manager = p.manager // simple selection from the previous result
+})
+.ToList();
+var results = resultsFunc(dbResult, ager);
+```
+
+This allows EF Core to make it's optimisations and prevent over fetching of data when using EntityGraphQL against an EF DbContext.
+
+## Limitations with using `GetService()` & EF
+
+If you are using the above functionality where the query will be completed in 2 parts, below are the current limitations to think about when building fields using services.
+
+Do not traverse through a relation in your field expression.
+
+An example of what will not work.
+
+```c#
+schema.UpdateType<Floor>(type => {
+  type.AddField("floorUrl",
+    f => WithService((IFloorUrlService s) => s.BuildFloorPlanUrl(f.SomeRelation.FirstOrDefault().Id)),
+    "Current floor url", "String");
+});
+```
+
+This will trigger the expression we build for EF to select `floor.SomeRelation` which errors in EF because of [this issue](https://github.com/dotnet/efcore/issues/23205) (or related).
+
+For now you can modify you field to only select fields on the context and update the service to load anything it needs to return the correct data. Remember you services can access the DB context or anything else it needs.
+
+```c#
+schema.UpdateType<Floor>(type => {
+  type.AddField("floorUrl",
+    f => WithService((IFloorPlanUrlService s) => s.BuildFloorUrlFromFloorId(f.Id)),
+    "Current floor url", "String");
+});
+```
 
 # A note on case matching
 
-GraphQL is case sensitive. Currently EntityGraphQL will automatically turn "fields" from `UpperCase` to `camelCase` which means your C# code matches what C# code typically looks like and your graphql matches the norm too.
+GraphQL is case sensitive. Currently EntityGraphQL will automatically turn "fields" from `UpperCase` to `camelCase` which means your C# code matches what C# code typically looks like and your graphql matches the GraphQL norm too.
 
 Examples:
 - A mutation method in C# named `AddMovie` will be `addMovie` in the schema
@@ -510,9 +592,9 @@ Examples:
 - The mutation arguments class (`ActorArgs` above) with fields `FirstName` & `Id` will be arguments in the schema as `firstName` & `id`
 - If you're using the schema builder manually, the names you give will be the names used. E.g. `schemaProvider.AddField("someEntity", ...)` is different to `schemaProvider.AddField("SomeEntity", ...)`
 
-# Authorization & Secuity
+# Authorization & Security
 
-You should be able to secure the route where you app/client posts request to in any ASP.NET supports. Given GraphQL works with a schema you likely want to provide security within the schema. EntityGraphQL provides support for checking claims on a `ClaimsIdentity` object.
+You should secure the route where you app/client posts request to in any ASP.NET supports. Given GraphQL works with a schema you likely want to provide security within the schema. EntityGraphQL provides support for checking claims on a `ClaimsIdentity` object.
 
 First pass in the `ClaimsIdentity` to the query call
 
@@ -608,7 +690,7 @@ schemaProvider.AddField("myEntities", new {take = 10, skip = 0}, (db, param) => 
 
 Open to ideas for making this easier.
 
-# Intergrating with other tools
+# Integrating with other tools
 Many tools can help you with typing or generating code from a GraphQL schema. Use `schema.GetGraphQLSchema()` to produce a GraphQL schema file. This works well as input to the Apollo code gen tools.
 
 # Using expressions else where (EQL)

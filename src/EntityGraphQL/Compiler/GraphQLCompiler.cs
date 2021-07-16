@@ -29,7 +29,7 @@ namespace EntityGraphQL.Compiler
         /// }
         ///
         /// The returned DataQueryNode is a root node, it's Fields are the top level data queries
-        public GraphQLResultNode Compile(string query, QueryVariables variables = null, ClaimsIdentity claims = null)
+        public GraphQLDocument Compile(string query, QueryVariables variables = null, ClaimsIdentity claims = null)
         {
             if (variables == null)
             {
@@ -37,22 +37,25 @@ namespace EntityGraphQL.Compiler
             }
             return Compile(new QueryRequest { Query = query, Variables = variables }, claims);
         }
-        public GraphQLResultNode Compile(QueryRequest request, ClaimsIdentity claims = null)
+        public GraphQLDocument Compile(QueryRequest request, ClaimsIdentity claims = null)
         {
             // Setup our Antlr parser
             var stream = new AntlrInputStream(request.Query);
             var lexer = new EntityGraphQLLexer(stream);
             var tokens = new CommonTokenStream(lexer);
-            var parser = new EntityGraphQLParser(tokens);
-            parser.BuildParseTree = true;
-            parser.ErrorHandler = new BailErrorStrategy();
+            var parser = new EntityGraphQLParser(tokens)
+            {
+                BuildParseTree = true,
+                ErrorHandler = new BailErrorStrategy()
+            };
             try
             {
                 var tree = parser.graphQL();
                 var visitor = new GraphQLVisitor(_schemaProvider, _methodProvider, request.Variables, claims);
                 // visit each node. it will return a linq expression for each entity requested
-                var node = visitor.Visit(tree);
-                return (GraphQLResultNode)node;
+                var node = (GraphQLDocument)visitor.Visit(tree);
+                node.Fragments = visitor.Fragments;
+                return node;
             }
             catch (ParseCanceledException pce)
             {
@@ -78,9 +81,6 @@ namespace EntityGraphQL.Compiler
     public class SchemaException : Exception
     {
         public SchemaException(string message) : base(message) { }
-        public static SchemaException MakeFieldCompileError(string query, string message)
-        {
-            return new SchemaException($"{message}");
-        }
+        public SchemaException(string message, Exception ex) : base(message, ex) { }
     }
 }

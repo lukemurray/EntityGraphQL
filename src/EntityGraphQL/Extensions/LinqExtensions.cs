@@ -25,22 +25,14 @@ namespace EntityGraphQL.Extensions
             return source;
         }
 
-        public static IQueryable<TSource> Take<TSource>(this IQueryable<TSource> source, int? count)
+        public static IEnumerable<TSource> Take<TSource>(this IEnumerable<TSource> source, int? count)
         {
             if (!count.HasValue)
                 return source;
 
-            return Queryable.Take(source, count.Value);
+            return Enumerable.Take(source, count.Value);
         }
 
-        /// <summary>
-        /// Apply the Where condition when applyPredicate is true
-        /// </summary>
-        /// <param name="source"></param>
-        /// <param name="wherePredicate"></param>
-        /// <param name="applyPredicate"></param>
-        /// <typeparam name="TSource"></typeparam>
-        /// <returns></returns>
         public static IQueryable<TSource> WhereWhen<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> wherePredicate, bool applyPredicate)
         {
             if (applyPredicate)
@@ -49,20 +41,25 @@ namespace EntityGraphQL.Extensions
             return source;
         }
 
-        /// <summary>
-        /// Apply the Where condition when applyPredicate is true
-        /// </summary>
-        /// <param name="source"></param>
-        /// <param name="wherePredicate"></param>
-        /// <param name="applyPredicate"></param>
-        /// <typeparam name="TSource"></typeparam>
-        /// <returns></returns>
-        public static IQueryable<TSource> WhereWhen<TSource>(this IEnumerable<TSource> source, Expression<Func<TSource, bool>> wherePredicate, bool applyPredicate)
+        public static IEnumerable<TSource> WhereWhen<TSource>(this IEnumerable<TSource> source, Expression<Func<TSource, bool>> wherePredicate, bool applyPredicate)
         {
             if (applyPredicate)
-                return Queryable.Where(source.AsQueryable(), wherePredicate);
+                return Queryable.Where(source.AsQueryable(), wherePredicate).AsEnumerable();
 
-            return source.AsQueryable();
+            return source;
+        }
+
+        public static IEnumerable<TSource> WhereWhen<TSource>(this IEnumerable<TSource> source, EntityQueryType<TSource> filter, bool applyPredicate)
+        {
+            if (filter.HasValue && applyPredicate)
+                return Queryable.Where(source.AsQueryable(), filter.Query);
+            return source;
+        }
+        public static IQueryable<TSource> WhereWhen<TSource>(this IQueryable<TSource> source, EntityQueryType<TSource> filter, bool applyPredicate)
+        {
+            if (filter.HasValue && applyPredicate)
+                return Queryable.Where(source, filter.Query);
+            return source;
         }
     }
 }

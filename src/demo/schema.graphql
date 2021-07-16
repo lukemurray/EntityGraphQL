@@ -88,6 +88,8 @@ type Person {
 	name: String
 	"""Show the person's age"""
 	age: Int!
+	"""Get Director of based on filter"""
+	filteredDirectorOf(filter: String): [Movie!]
 }
 
 type Writer {

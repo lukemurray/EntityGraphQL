@@ -7,7 +7,7 @@ using EntityGraphQL.Extensions;
 
 namespace EntityGraphQL.Compiler.Util
 {
-    public static class ExpressionUtil
+    internal static class ExpressionUtil
     {
         public static ExpressionResult MakeCallOnQueryable(string methodName, Type[] genericTypes, params Expression[] parameters)
         {
@@ -131,7 +131,7 @@ namespace EntityGraphQL.Compiler.Util
         }
 
         /// <summary>
-        /// Naviagtes back through an expression to see if there was a point where we had a IEnumerable object so we can "edit" it (so a .Select() etc.)
+        /// Navigates back through an expression to see if there was a point where we had a IEnumerable object so we can "edit" it (so a .Select() etc.)
         /// </summary>
         /// <param name="baseExpression"></param>
         /// <returns></returns>
@@ -158,27 +158,37 @@ namespace EntityGraphQL.Compiler.Util
             return Tuple.Create(exp, endExpression);
         }
 
-        public static Expression SelectDynamicToList(ParameterExpression currentContextParam, Expression baseExp, IEnumerable<IGraphQLBaseNode> fieldExpressions, IServiceProvider serviceProvider)
+        /// <summary>
+        /// Makes a selection from a IEnumerable context
+        /// </summary>
+        public static Expression MakeSelectWithDynamicType(ParameterExpression currentContextParam, Expression baseExp, IDictionary<string, ExpressionResult> fieldExpressions)
         {
-            var memberInit = CreateNewExpression(fieldExpressions, serviceProvider, out Type dynamicType);
+            if (!fieldExpressions.Any())
+                return baseExp;
+
+            var memberInit = CreateNewExpression(fieldExpressions, out Type dynamicType);
+            if (memberInit == null) // nothing to select
+                return baseExp;
             var selector = Expression.Lambda(memberInit, currentContextParam);
-            var call = MakeCallOnQueryable("Select", new Type[2] { currentContextParam.Type, dynamicType }, baseExp, selector);
+            var call = MakeCallOnQueryable("Select", new Type[] { currentContextParam.Type, dynamicType }, baseExp, selector);
             return call;
         }
 
-        public static Expression CreateNewExpression(IEnumerable<IGraphQLBaseNode> fieldExpressions, IServiceProvider serviceProvider)
-        {
-            var memberInit = CreateNewExpression(fieldExpressions, serviceProvider, out _);
-            return memberInit;
-        }
-        private static Expression CreateNewExpression(IEnumerable<IGraphQLBaseNode> fieldExpressions, IServiceProvider serviceProvider, out Type dynamicType)
+        public static Expression CreateNewExpression(IDictionary<string, ExpressionResult> fieldExpressions, out Type dynamicType)
         {
             var fieldExpressionsByName = new Dictionary<string, ExpressionResult>();
+
             foreach (var item in fieldExpressions)
             {
                 // if there are duplicate fields (looking at you ApolloClient when using fragments) they override
-                fieldExpressionsByName[item.Name] = item.GetNodeExpression(null, serviceProvider);
+                if (item.Value != null)
+                    fieldExpressionsByName[item.Key] = item.Value;
             }
+
+            dynamicType = null;
+            if (!fieldExpressionsByName.Any())
+                return null;
+
             dynamicType = LinqRuntimeTypeBuilder.GetDynamicType(fieldExpressionsByName.ToDictionary(f => f.Key, f => f.Value.Type));
 
             var bindings = dynamicType.GetFields().Select(p => Expression.Bind(p, fieldExpressionsByName[p.Name])).OfType<MemberBinding>();
@@ -205,24 +215,22 @@ namespace EntityGraphQL.Compiler.Util
 
         /// <summary>
         /// Wrap a field expression in a method that does a null check for us and avoid calling the field multiple times.
-        /// E.g. if the field is (db) => CallSomeService(db) and the result is an object (not IEnumerable) we do not want to generate
-        ///     CallSomeService(db) == null ? null : new {
-        ///         field1 = CallSomeService(db).field1,
-        ///         field2 = CallSomeService(db).field2
+        /// E.g. if the field is (item) => CallSomeService(item) and the result is an object (not IEnumerable) we do not want to generate
+        ///     CallSomeService(item) == null ? null : new {
+        ///         field1 = CallSomeService(item).field1,
+        ///         field2 = CallSomeService(item).field2
         //      }
         /// As that will call the function 3 times (or 1 + number of fields selected)
         ///
         /// This wraps the field expression that does the call once
         /// </summary>
-        /// <param name="selectFromExp"></param>
-        /// <param name="replacementParameter"></param>
-        /// <param name="fieldExpressions"></param>
-        /// <returns></returns>
-        internal static ExpressionResult WrapFieldForNullCheck(ExpressionResult selectFromExp, IEnumerable<ParameterExpression> paramsForFieldExpressions, Dictionary<string, ExpressionResult> fieldExpressions, IEnumerable<object> fieldSelectParamValues)
+        internal static ExpressionResult WrapFieldForNullCheck(ExpressionResult nullCheckExpression, ParameterExpression selectionContextExpression, IEnumerable<ParameterExpression> paramsForFieldExpressions, Dictionary<string, ExpressionResult> fieldExpressions, IEnumerable<object> fieldSelectParamValues, ParameterExpression nullWrapParam)
         {
             var arguments = new List<Expression> {
-                selectFromExp,
-                Expression.Constant(paramsForFieldExpressions),
+                nullCheckExpression,
+                selectionContextExpression,
+                Expression.Constant(nullWrapParam, typeof(ParameterExpression)),
+                Expression.Constant(paramsForFieldExpressions.ToList()),
                 Expression.Constant(fieldExpressions),
                 Expression.Constant(fieldSelectParamValues),
             };
@@ -234,15 +242,21 @@ namespace EntityGraphQL.Compiler.Util
         /// Actually implements the null check code. This is executed at execution time of the whole query not at compile time
         /// </summary>
         /// <returns></returns>
-        public static object WrapFieldForNullCheckExec(object selectFromValue, IEnumerable<ParameterExpression> paramsForFieldExpressions, Dictionary<string, ExpressionResult> fieldExpressions, IEnumerable<object> fieldSelectParamValues)
+        public static object WrapFieldForNullCheckExec(object nullCheck, ParameterExpression nullWrapParam, List<ParameterExpression> paramsForFieldExpressions, Dictionary<string, ExpressionResult> fieldExpressions, IEnumerable<object> fieldSelectParamValues)
         {
-            if (selectFromValue == null)
+            if (nullCheck == null)
                 return null;
 
             var newExp = CreateNewExpression(fieldExpressions);
-            var args = new List<object> { selectFromValue };
+            var args = new List<object>();
             args.AddRange(fieldSelectParamValues);
-            var result = Expression.Lambda(newExp, paramsForFieldExpressions.ToArray()).Compile().DynamicInvoke(args.ToArray());
+            if (nullWrapParam != null)
+            {
+                if (!paramsForFieldExpressions.Contains(nullWrapParam))
+                    paramsForFieldExpressions.Add(nullWrapParam);
+                args.Add(nullCheck);
+            }
+            var result = Expression.Lambda(newExp, paramsForFieldExpressions).Compile().DynamicInvoke(args.ToArray());
             return result;
         }
     }

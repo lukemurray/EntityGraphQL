@@ -14,7 +14,7 @@ namespace EntityGraphQL.Directives
             return typeof(IncludeArguments);
         }
 
-        public override IGraphQLBaseNode ProcessQuery(GraphQLQueryNode field, IncludeArguments arguments)
+        public override BaseGraphQLField ProcessQuery(BaseGraphQLField field, IncludeArguments arguments)
         {
             if (arguments.@if)
                 return field;

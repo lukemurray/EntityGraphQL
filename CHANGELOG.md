@@ -1,3 +1,29 @@
+# 0.69.0
+- Added `SchemaProvider.UpdateType<T>(Action<SchemaType<T>> updateFunc)` to better help "contain" schema types. Instead of
+```
+schema.Type<MyType>().AddField(...);
+schema.Type<MyType>().AddField(...);
+schema.Type<MyType>().AddField(...);
+```
+we have
+```
+schema.UpdateType<MyType>(t => {
+  t.AddField(...);
+  t.AddField(...);
+  t.AddField(...);
+});
+```
+Similar for `SchemaProvider.AddType<T>(string name, string description, Action<SchemaType<T>> updateFunc)`
+
+*Breaking changes*
+- Big refactor/clean - hopefully easier to follow the post Antlr (compiled graphql) output - see `GraphQL*Field` classes
+- Support for dotnet Entity Framework Core 3.1+ when using other services in the schema (`WithService()`)
+
+To support EF 3.x as a base schema context we now build and execute expressions in 2 stages. See the updated readme section How EntityGraphQL handles WithService().
+
+# 0.68.1
+- Update Humanizer.Core dependency which resolves issue with newer dotnet core
+
 # 0.68.0
 - Fix issue where `FieldNamer` was not being consistently used. Thanks @AnderssonPeter
 - Make sure we include inner exceptions on errors. Thanks @AnderssonPeter

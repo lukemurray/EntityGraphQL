@@ -12,7 +12,6 @@ namespace EntityGraphQL.Schema
 {
     public class MutationType : IField
     {
-        private readonly ISchemaProvider schema;
         private readonly object mutationClassInstance;
         private readonly MethodInfo method;
         private readonly Dictionary<string, ArgType> argumentTypes = new Dictionary<string, ArgType>();
@@ -157,7 +156,6 @@ namespace EntityGraphQL.Schema
 
         public MutationType(ISchemaProvider schema, string methodName, GqlTypeInfo returnType, object mutationClassInstance, MethodInfo method, string description, RequiredClaims authorizeClaims, bool isAsync, Func<string, string> fieldNamer)
         {
-            this.schema = schema;
             Description = description;
             ReturnType = returnType;
             this.mutationClassInstance = mutationClassInstance;

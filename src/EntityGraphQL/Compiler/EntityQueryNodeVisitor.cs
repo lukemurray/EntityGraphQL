@@ -19,7 +19,7 @@ namespace EntityGraphQL.Compiler
         private readonly IMethodProvider methodProvider;
         private readonly ConstantVisitor constantVisitor;
 
-        public EntityQueryNodeVisitor(Expression expression, ISchemaProvider schemaProvider, IMethodProvider methodProvider, QueryVariables variables, ClaimsIdentity claims)
+        public EntityQueryNodeVisitor(Expression expression, ISchemaProvider schemaProvider, IMethodProvider methodProvider, ClaimsIdentity claims)
         {
             this.claims = claims;
             currentContext = (ExpressionResult)expression;
@@ -192,22 +192,22 @@ namespace EntityGraphQL.Compiler
 
         private ExpressionType MakeOperator(string op)
         {
-            switch (op)
+            return op switch
             {
-                case "=": return ExpressionType.Equal;
-                case "+": return ExpressionType.Add;
-                case "-": return ExpressionType.Subtract;
-                case "%": return ExpressionType.Modulo;
-                case "^": return ExpressionType.Power;
-                case "and": return ExpressionType.AndAlso;
-                case "*": return ExpressionType.Multiply;
-                case "or": return ExpressionType.OrElse;
-                case "<=": return ExpressionType.LessThanOrEqual;
-                case ">=": return ExpressionType.GreaterThanOrEqual;
-                case "<": return ExpressionType.LessThan;
-                case ">": return ExpressionType.GreaterThan;
-                default: throw new EntityGraphQLCompilerException($"Unsupported binary operator '{op}'");
-            }
+                "=" => ExpressionType.Equal,
+                "+" => ExpressionType.Add,
+                "-" => ExpressionType.Subtract,
+                "%" => ExpressionType.Modulo,
+                "^" => ExpressionType.Power,
+                "and" => ExpressionType.AndAlso,
+                "*" => ExpressionType.Multiply,
+                "or" => ExpressionType.OrElse,
+                "<=" => ExpressionType.LessThanOrEqual,
+                ">=" => ExpressionType.GreaterThanOrEqual,
+                "<" => ExpressionType.LessThan,
+                ">" => ExpressionType.GreaterThan,
+                _ => throw new EntityGraphQLCompilerException($"Unsupported binary operator '{op}'"),
+            };
         }
     }
 }

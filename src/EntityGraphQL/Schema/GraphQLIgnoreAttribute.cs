@@ -22,8 +22,7 @@ namespace EntityGraphQL.Schema
         /// <returns></returns>
         public static bool ShouldIgnoreMemberFromQuery(MemberInfo prop)
         {
-            var attribute = prop.GetCustomAttribute(typeof(GraphQLIgnoreAttribute)) as GraphQLIgnoreAttribute;
-            if (attribute != null)
+            if (prop.GetCustomAttribute(typeof(GraphQLIgnoreAttribute)) is GraphQLIgnoreAttribute attribute)
             {
                 if (attribute.IgnoreFrom == GraphQLIgnoreType.All || attribute.IgnoreFrom == GraphQLIgnoreType.Query)
                 {
@@ -40,8 +39,7 @@ namespace EntityGraphQL.Schema
         /// <returns></returns>
         public static bool ShouldIgnoreMemberFromInput(MemberInfo prop)
         {
-            var attribute = prop.GetCustomAttribute(typeof(GraphQLIgnoreAttribute)) as GraphQLIgnoreAttribute;
-            if (attribute != null)
+            if (prop.GetCustomAttribute(typeof(GraphQLIgnoreAttribute)) is GraphQLIgnoreAttribute attribute)
             {
                 if (attribute.IgnoreFrom == GraphQLIgnoreType.All || attribute.IgnoreFrom == GraphQLIgnoreType.Input)
                 {

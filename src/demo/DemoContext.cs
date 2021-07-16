@@ -12,6 +12,12 @@ namespace demo
         {
         }
 
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            base.OnConfiguring(optionsBuilder);
+        }
+
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             builder.Entity<Actor>().HasKey(d => d.PersonId);

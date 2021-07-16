@@ -12,7 +12,7 @@ namespace EntityGraphQL
         [JsonProperty("errors")]
         public ReadOnlyCollection<GraphQLError> Errors => errors?.AsReadOnly();
         [JsonProperty("data")]
-        public readonly ConcurrentDictionary<string, object> Data = new ConcurrentDictionary<string, object>();
+        public ConcurrentDictionary<string, object> Data = new ConcurrentDictionary<string, object>();
 
         public QueryResult() { }
         public QueryResult(GraphQLError error)

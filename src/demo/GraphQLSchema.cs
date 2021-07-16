@@ -25,23 +25,36 @@ namespace demo
             demoSchema.AddField("directors", db => db.People.Where(p => p.DirectorOf.Any()), "List of directors");
 
             // Add calculated fields to a type
-            demoSchema.Type<Person>().AddField("name", l => $"{l.FirstName} {l.LastName}", "Person's name");
-            // really poor example of using services e.g. you should just do below but pretend the service does something crazy like calls an API
-            // demoSchema.Type<Person>().AddField("age", l => (int)((DateTime.Now - l.Dob).TotalDays / 365), "Show the person's age");
-            // AgeService needs to be added to the ServiceProvider
-            demoSchema.Type<Person>().AddField("age", person => ArgumentHelper.WithService((AgeService ageService) => ageService.Calc(person)), "Show the person's age");
+            demoSchema.UpdateType<Person>(type =>
+            {
+                type.AddField("name", l => $"{l.FirstName} {l.LastName}", "Person's name");
+                // really poor example of using services e.g. you could just do below but pretend the service does something crazy like calls an API
+                // type.AddField("age", l => (int)((DateTime.Now - l.Dob).TotalDays / 365), "Show the person's age");
+                // AgeService needs to be added to the ServiceProvider
+                type.AddField("age", person => ArgumentHelper.WithService((AgeService ageService) => ageService.Calc(person)), "Show the person's age");
+                type.AddField("filteredDirectorOf", new
+                {
+                    filter = ArgumentHelper.EntityQuery<Movie>()
+                },
+                (person, args) => person.DirectorOf.WhereWhen(args.filter, args.filter.HasValue).OrderBy(a => a.Name),
+                "Get Director of based on filter");
+                type.ReplaceField("writerOf", m => m.WriterOf.Select(a => a.Movie), "Movies they wrote");
+                type.ReplaceField("actorIn", m => m.ActorIn.Select(a => a.Movie), "Movies they acted in");
+            });
 
             // replace fields. e.g. remove a many-to-many relationships
-            demoSchema.Type<Movie>().ReplaceField("actors", m => m.Actors.Select(a => a.Person), "Actors in the movie");
-            demoSchema.Type<Movie>().ReplaceField("writers", m => m.Writers.Select(a => a.Person), "Writers in the movie");
+            demoSchema.UpdateType<Movie>(type =>
+            {
+                type.ReplaceField("actors", m => m.Actors.Select(a => a.Person), "Actors in the movie");
+                type.ReplaceField("writers", m => m.Writers.Select(a => a.Person), "Writers in the movie");
+            });
 
-            demoSchema.Type<Person>().ReplaceField("writerOf", m => m.WriterOf.Select(a => a.Movie), "Movies they wrote");
-            demoSchema.Type<Person>().ReplaceField("actorIn", m => m.ActorIn.Select(a => a.Movie), "Movies they acted in");
-
-            var dto = demoSchema.AddType<Pagination<Person>>("PersonPagination", "Actor Pagination");
-            dto.AddField("total", x => x.Total, "total records to match search");
-            dto.AddField("pageCount", x => x.PageCount, "total pages based on page size");
-            dto.AddField("people", x => x.Items, "collection of people");
+            demoSchema.AddType<Pagination<Person>>("PersonPagination", "Actor Pagination", type =>
+            {
+                type.AddField("total", x => x.Total, "total records to match search");
+                type.AddField("pageCount", x => x.PageCount, "total pages based on page size");
+                type.AddField("people", x => x.Items, "collection of people");
+            });
 
             demoSchema.AddField("actorPager",
                 new { page = 1, pagesize = 10, search = "" },

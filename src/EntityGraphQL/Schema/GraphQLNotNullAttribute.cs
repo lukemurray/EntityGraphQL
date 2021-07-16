@@ -44,8 +44,7 @@ namespace EntityGraphQL.Schema
         /// <returns></returns>
         public static bool IsMemberElementMarkedNullable(MemberInfo prop)
         {
-            var attribute = prop.GetCustomAttribute(typeof(GraphQLElementTypeNullable)) as GraphQLElementTypeNullable;
-            if (attribute != null)
+            if (prop.GetCustomAttribute(typeof(GraphQLElementTypeNullable)) is GraphQLElementTypeNullable)
             {
                 return true;
             }

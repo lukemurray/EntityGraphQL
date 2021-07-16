@@ -103,7 +103,7 @@ namespace EntityGraphQL.Tests.GqlCompiling
             var ex = Assert.Throws<SchemaException>(() => { var tree = new GraphQLCompiler(schema, new DefaultMethodProvider()).Compile(@"
 {
 	people { id }
-}");});
+}"); });
             Assert.Equal("Field id not found on type Person", ex.Message);
         }
 
@@ -299,6 +299,7 @@ namespace EntityGraphQL.Tests.GqlCompiling
             var result = tree.ExecuteQuery(new TestSchema(), null);
             Assert.Equal("Project 3", ((dynamic)result.Data["project"]).name);
         }
+
         [Fact]
         public void TestAlias()
         {

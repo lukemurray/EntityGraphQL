@@ -21,7 +21,7 @@ namespace EntityGraphQL.Directives
         /// </summary>
         /// <value></value>
         bool ProcessesResult { get; }
-        IGraphQLBaseNode ProcessQueryInternal(GraphQLQueryNode fieldResult, object arguments);
+        BaseGraphQLField ProcessQueryInternal(BaseGraphQLField fieldResult, object arguments);
         IEnumerable<ArgType> GetArguments(ISchemaProvider schema);
     }
 
@@ -44,7 +44,7 @@ namespace EntityGraphQL.Directives
         /// <param name="field"></param>
         /// <param name="arguments">Any arguments passed to the directive</param>
         /// <returns>Return a modified (from field) or new IGraphQLBaseNode. Returning null will remove the item from the resulting query</returns>
-        public virtual IGraphQLBaseNode ProcessQuery(GraphQLQueryNode field, TArguments arguments)
+        public virtual BaseGraphQLField ProcessQuery(BaseGraphQLField field, TArguments arguments)
         {
             // by default we do nothing
             return field;
@@ -62,7 +62,7 @@ namespace EntityGraphQL.Directives
             return value;
         }
 
-        public IGraphQLBaseNode ProcessQueryInternal(GraphQLQueryNode field, object arguments)
+        public BaseGraphQLField ProcessQueryInternal(BaseGraphQLField field, object arguments)
         {
             var result = ProcessQuery(field, (TArguments)arguments);
             if (ProcessesResult)

@@ -7,28 +7,19 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/src/demo/demo.csproj"
+                "${workspaceFolder}"
             ],
             "problemMatcher": "$tsc"
         },
         {
-            "label": "publish",
+            "label": "pack",
             "command": "dotnet",
             "type": "process",
             "args": [
-                "publish",
-                "${workspaceFolder}/src/demo/demo.csproj"
-            ],
-            "problemMatcher": "$tsc"
-        },
-        {
-            "label": "watch",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "watch",
-                "run",
-                "${workspaceFolder}/src/demo/demo.csproj"
+                "pack",
+                "-c",
+                "Release",
+                "${workspaceFolder}"
             ],
             "problemMatcher": "$tsc"
         }

@@ -78,6 +78,7 @@ namespace EntityGraphQL.Tests
             };
             var testSchema = new TestSchema();
             var results = schemaProvider.ExecuteQuery(gql, testSchema, null, null);
+            Assert.Null(results.Errors);
             dynamic addPersonResult = results.Data["addPersonNames"];
             // we only have the fields requested
             Assert.Equal(3, addPersonResult.GetType().GetFields().Length);
@@ -107,10 +108,9 @@ namespace EntityGraphQL.Tests
                     {"names", Newtonsoft.Json.JsonConvert.DeserializeObject("{\"name\": \"Lisa\", \"lastName\": \"Simpson\"}")}
                 }
             };
-            dynamic addPersonResult = schemaProvider.ExecuteQuery(gql, new TestSchema(), null, null);
-            Assert.Null(addPersonResult.Errors);
-            addPersonResult = Enumerable.First(addPersonResult.Data);
-            addPersonResult = addPersonResult.Value;
+            var result = schemaProvider.ExecuteQuery(gql, new TestSchema(), null, null);
+            Assert.Null(result.Errors);
+            dynamic addPersonResult = (dynamic)result.Data["addPersonInput"];
             // we only have the fields requested
             Assert.Equal(3, addPersonResult.GetType().GetFields().Length);
             Assert.Equal("id", addPersonResult.GetType().GetFields()[0].Name);

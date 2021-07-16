@@ -1,5 +1,6 @@
 using System;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
 
 namespace EntityGraphQL.Schema
 {
@@ -25,40 +26,28 @@ namespace EntityGraphQL.Schema
         /// <param name="selection"></param>
         /// <typeparam name="TService"></typeparam>
         /// <returns></returns>
-        public static TReturn WithService<TService, TReturn>(Expression<Func<TService, TReturn>> selection)
-        {
-            return default;
-        }
+        public static TReturn WithService<TService, TReturn>(Expression<Func<TService, TReturn>> selection) => default;
         /// <summary>
         /// Helper to inject services into you GraphQL field selection expressions.
         /// </summary>
         /// <param name="selection"></param>
         /// <typeparam name="TService"></typeparam>
         /// <returns></returns>
-        public static TReturn WithService<TService1, TService2, TReturn>(Expression<Func<TService1, TService2, TReturn>> selection)
-        {
-            return default;
-        }
+        public static TReturn WithService<TService1, TService2, TReturn>(Expression<Func<TService1, TService2, TReturn>> selection) => default;
         /// <summary>
         /// Helper to inject services into you GraphQL field selection expressions.
         /// </summary>
         /// <param name="selection"></param>
         /// <typeparam name="TService"></typeparam>
         /// <returns></returns>
-        public static TReturn WithService<TService1, TService2, TService3, TReturn>(Expression<Func<TService1, TService2, TService3, TReturn>> selection)
-        {
-            return default;
-        }
+        public static TReturn WithService<TService1, TService2, TService3, TReturn>(Expression<Func<TService1, TService2, TService3, TReturn>> selection) => default;
         /// <summary>
         /// Helper to inject services into you GraphQL field selection expressions.
         /// </summary>
         /// <param name="selection"></param>
         /// <typeparam name="TService"></typeparam>
         /// <returns></returns>
-        public static TReturn WithService<TService1, TService2, TService3, TService4, TReturn>(Expression<Func<TService1, TService2, TService3, TService4, TReturn>> selection)
-        {
-            return default;
-        }
+        public static TReturn WithService<TService1, TService2, TService3, TService4, TReturn>(Expression<Func<TService1, TService2, TService3, TService4, TReturn>> selection) => default;
     }
 
     /// <summary>

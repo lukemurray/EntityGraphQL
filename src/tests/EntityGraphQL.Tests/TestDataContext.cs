@@ -25,9 +25,11 @@ namespace EntityGraphQL.Tests
         public Guid Guid { get; set; }
         public string Name { get; set; }
         public string LastName { get; set; }
+        public Person Manager { get; set; }
         public Gender Gender { get; set; }
         public List<Project> Projects { get; set; }
         public List<Task> Tasks { get; set; }
+        public DateTime? Birthday { get; set; }
     }
 
     public class Project
@@ -37,6 +39,8 @@ namespace EntityGraphQL.Tests
         public Location Location { get; set; }
         public IEnumerable<Task> Tasks { get; set; }
         public Person Owner { get; set; }
+        public string Description { get; set; }
+        public bool IsActive { get; set; }
     }
 
     public class Task
@@ -45,6 +49,7 @@ namespace EntityGraphQL.Tests
         public string Name { get; set; }
         public bool IsActive { get; set; }
         public Person Assignee { get; set; }
+        public Project Project { get; set; }
     }
     public class Location
     {

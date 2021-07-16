@@ -70,32 +70,27 @@ namespace EntityGraphQL.Schema
             types.Add(queryContext.Name, queryContext);
 
             // add types first as fields from the other types may refer to these types
-            AddType<Models.TypeElement>("__Type", "Information about types");
-            AddType<Models.EnumValue>("__EnumValue", "Information about enums");
-            AddType<Models.InputValue>("__InputValue", "Arguments provided to Fields or Directives and the input fields of an InputObject are represented as Input Values which describe their type and optionally a default value.");
-            AddType<Models.Directive>("__Directive", "Information about directives");
-            AddType<Models.Field>("__Field", "Information about fields");
-            AddType<Models.SubscriptionType>("Information about subscriptions");
-            AddType<Models.Schema>("__Schema", "A GraphQL Schema defines the capabilities of a GraphQL server. It exposes all available types and directives on the server, as well as the entry points for query, mutation, and subscription operations.");
-
-            // add the fields
-            Type<Models.TypeElement>().AddAllFields();
-            Type<Models.EnumValue>().AddAllFields();
-            Type<Models.InputValue>().AddAllFields();
-            Type<Models.Directive>().AddAllFields();
-            Type<Models.Field>().AddAllFields();
-            Type<Models.SubscriptionType>().AddAllFields();
-            Type<Models.Schema>().AddAllFields();
-
-            Type<Models.TypeElement>("__Type").ReplaceField("enumValues", new { includeDeprecated = false },
-                (t, p) => t.EnumValues.Where(f => p.includeDeprecated ? f.IsDeprecated || !f.IsDeprecated : !f.IsDeprecated).ToList(), "Enum values available on type");
+            AddType<Models.TypeElement>("__Type", "Information about types", type =>
+                {
+                    type.AddAllFields();
+                    type.ReplaceField("enumValues",
+                        new { includeDeprecated = false },
+                        (t, p) => t.EnumValues.Where(f => p.includeDeprecated ? f.IsDeprecated || !f.IsDeprecated : !f.IsDeprecated).ToList(),
+                        "Enum values available on type");
+                });
+            AddType<Models.EnumValue>("__EnumValue", "Information about enums").AddAllFields();
+            AddType<Models.InputValue>("__InputValue", "Arguments provided to Fields or Directives and the input fields of an InputObject are represented as Input Values which describe their type and optionally a default value.").AddAllFields();
+            AddType<Models.Directive>("__Directive", "Information about directives").AddAllFields();
+            AddType<Models.Field>("__Field", "Information about fields").AddAllFields();
+            AddType<Models.SubscriptionType>("Information about subscriptions").AddAllFields();
+            AddType<Models.Schema>("__Schema", "A GraphQL Schema defines the capabilities of a GraphQL server. It exposes all available types and directives on the server, as well as the entry points for query, mutation, and subscription operations.").AddAllFields();
 
             SetupIntrospectionTypesAndField();
         }
 
-        public QueryResult ExecuteQuery(QueryRequest gql, TContextType context, IServiceProvider serviceProvider, ClaimsIdentity claims, IMethodProvider methodProvider = null)
+        public QueryResult ExecuteQuery(QueryRequest gql, TContextType context, IServiceProvider serviceProvider, ClaimsIdentity claims, IMethodProvider methodProvider = null, bool executeServiceFieldsSeparately = true)
         {
-            return ExecuteQueryAsync(gql, context, serviceProvider, claims, methodProvider).Result;
+            return ExecuteQueryAsync(gql, context, serviceProvider, claims, methodProvider, executeServiceFieldsSeparately).Result;
         }
 
         /// <summary>
@@ -109,17 +104,13 @@ namespace EntityGraphQL.Schema
         /// <param name="includeDebugInfo"></param>
         /// <typeparam name="TContextType"></typeparam>
         /// <returns></returns>
-        public async Task<QueryResult> ExecuteQueryAsync(QueryRequest gql, TContextType context, IServiceProvider serviceProvider, ClaimsIdentity claims, IMethodProvider methodProvider = null)
+        public async Task<QueryResult> ExecuteQueryAsync(QueryRequest gql, TContextType context, IServiceProvider serviceProvider, ClaimsIdentity claims, IMethodProvider methodProvider = null, bool executeServiceFieldsSeparately = true)
         {
-            if (methodProvider == null)
-                methodProvider = new DefaultMethodProvider();
-
             QueryResult result;
             try
             {
-                var graphQLCompiler = new GraphQLCompiler(this, methodProvider);
-                var queryResult = graphQLCompiler.Compile(gql, claims);
-                result = await queryResult.ExecuteQueryAsync(context, serviceProvider, gql.OperationName);
+                var queryResult = CompileQuery(gql, claims, methodProvider);
+                result = await queryResult.ExecuteQueryAsync(context, serviceProvider, gql.OperationName, executeServiceFieldsSeparately);
             }
             catch (Exception ex)
             {
@@ -130,12 +121,21 @@ namespace EntityGraphQL.Schema
             return result;
         }
 
+        public GraphQLDocument CompileQuery(QueryRequest gql, ClaimsIdentity claims, IMethodProvider methodProvider = null)
+        {
+            if (methodProvider == null)
+                methodProvider = new DefaultMethodProvider();
+
+            var graphQLCompiler = new GraphQLCompiler(this, methodProvider);
+            var queryResult = graphQLCompiler.Compile(gql, claims);
+            return queryResult;
+        }
+
         private void SetupIntrospectionTypesAndField()
         {
             // evaluate Fields lazily so we don't end up in endless loop
             Type<Models.TypeElement>("__Type").ReplaceField("fields", new { includeDeprecated = false },
                 (t, p) => SchemaIntrospection.BuildFieldsForType(this, t.Name).Where(f => p.includeDeprecated ? f.IsDeprecated || !f.IsDeprecated : !f.IsDeprecated).ToList(), "Fields available on type");
-
 
             ReplaceField("__schema", db => SchemaIntrospection.Make(this), "Introspection of the schema", "__Schema");
             ReplaceField("__type", new { name = ArgumentHelper.Required<string>() }, (db, p) => SchemaIntrospection.Make(this).Types.Where(s => s.Name == p.name).First(), "Query a type by name", "__Type");
@@ -157,6 +157,11 @@ namespace EntityGraphQL.Schema
 
             types.Add(name, tt);
             return tt;
+        }
+
+        public void AddType<TBaseType>(string name, string description, Action<SchemaType<TBaseType>> updateFunc)
+        {
+            updateFunc(AddType<TBaseType>(name, description));
         }
 
         public ISchemaType AddType(Type contextType, string name, string description)
@@ -353,6 +358,9 @@ namespace EntityGraphQL.Schema
             var schemaType = (SchemaType<TType>)Type(typeof(TType));
             return schemaType;
         }
+
+        public void UpdateType<TType>(Action<SchemaType<TType>> updateFunc) => updateFunc(Type<TType>());
+
         public ISchemaType Type(Type dotnetType)
         {
             // look up by the actual type not the name
